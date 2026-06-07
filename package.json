@@ -1,0 +1,28 @@
+{
+  "name": "ai-workspace-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@tiptap/extension-placeholder": "^2.2.4",
+    "@tiptap/extension-underline": "^2.2.4",
+    "@tiptap/extension-task-item": "^2.2.4",
+    "@tiptap/extension-task-list": "^2.2.4",
+    "@tiptap/react": "^2.2.4",
+    "@tiptap/starter-kit": "^2.2.4",
+    "axios": "^1.6.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.2",
+    "react-scripts": "5.0.1",
+    "socket.io-client": "^4.7.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build"
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version"]
+  },
+  "proxy": "http://localhost:5000"
+}
