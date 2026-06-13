@@ -1,56 +1,76 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import Placeholder from '@tiptap/extension-placeholder';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Placeholder from "@tiptap/extension-placeholder";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
 
-import { documentAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import { useDocumentSocket } from '../hooks/useDocumentSocket';
-import { useAutoSave } from '../hooks/useAutoSave';
-import EditorToolbar from '../components/EditorToolbar';
-import AIPanel from '../components/AIPanel';
-import DocShareModal from '../components/DocShareModal';
-import Spinner from '../components/Spinner';
-import Toast from '../components/Toast';
+import { documentAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
+import { useDocumentSocket } from "../hooks/useDocumentSocket";
+import { useAutoSave } from "../hooks/useAutoSave";
+import EditorToolbar from "../components/EditorToolbar";
+import AIPanel from "../components/AIPanel";
+import DocShareModal from "../components/DocShareModal";
+import Spinner from "../components/Spinner";
+import Toast from "../components/Toast";
 
-const EMOJIS = ['📄', '📝', '💡', '🚀', '🎯', '📊', '🔥', '✅', '🌟', '📌'];
+const EMOJIS = ["📄", "📝", "💡", "🚀", "🎯", "📊", "🔥", "✅", "🌟", "📌"];
 
-const AVATAR_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
+const AVATAR_COLORS = [
+  "#6366f1",
+  "#f59e0b",
+  "#10b981",
+  "#ef4444",
+  "#8b5cf6",
+  "#ec4899",
+];
 const getAvatarColor = (uid) => {
   let hash = 0;
-  for (let i = 0; i < uid.length; i++) hash = uid.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < uid.length; i++)
+    hash = uid.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 };
 
 const SaveStatusBadge = ({ status }) => {
   const config = {
     saved: {
-      color: 'text-emerald-500',
-      label: 'Saved',
+      color: "text-emerald-500",
+      label: "Saved",
       icon: (
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M5 13l4 4L19 7"
+          />
         </svg>
       ),
     },
     saving: {
-      color: 'text-amber-500',
-      label: 'Saving…',
+      color: "text-amber-500",
+      label: "Saving…",
       icon: <Spinner size="sm" />,
     },
     unsaved: {
-      color: 'text-slate-400',
-      label: 'Unsaved',
+      color: "text-slate-400",
+      label: "Unsaved",
       icon: <div className="w-1.5 h-1.5 rounded-full bg-current" />,
     },
   };
   const c = config[status];
   return (
-    <span className={`flex items-center gap-1.5 text-xs font-medium ${c.color}`}>
+    <span
+      className={`flex items-center gap-1.5 text-xs font-medium ${c.color}`}
+    >
       {c.icon}
       {c.label}
     </span>
@@ -63,9 +83,9 @@ const DocumentEditor = () => {
   const { user } = useAuth();
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [title, setTitle] = useState('');
-  const [emoji, setEmoji] = useState('📄');
-  const [saveStatus, setSaveStatus] = useState('saved');
+  const [title, setTitle] = useState("");
+  const [emoji, setEmoji] = useState("📄");
+  const [saveStatus, setSaveStatus] = useState("saved");
   const [showAI, setShowAI] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [toast, setToast] = useState(null);
@@ -78,12 +98,12 @@ const DocumentEditor = () => {
       Underline,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Placeholder.configure({ placeholder: 'Start writing…' }),
+      Placeholder.configure({ placeholder: "Start writing…" }),
     ],
-    content: '',
+    content: "",
     onUpdate: ({ editor }) => {
       if (isRemoteUpdate.current) return;
-      setSaveStatus('unsaved');
+      setSaveStatus("unsaved");
       triggerAutoSave();
       emitChange({ content: editor.getHTML(), title });
     },
@@ -96,9 +116,9 @@ const DocumentEditor = () => {
         setDoc(d);
         setTitle(d.title);
         setEmoji(d.emoji);
-        editor?.commands.setContent(d.content || '');
+        editor?.commands.setContent(d.content || "");
       } catch {
-        navigate('/dashboard');
+        navigate("/dashboard");
       } finally {
         setLoading(false);
       }
@@ -113,7 +133,7 @@ const DocumentEditor = () => {
       if (remoteTitle) setTitle(remoteTitle);
       isRemoteUpdate.current = false;
     },
-    [editor]
+    [editor],
   );
 
   const handleDocumentLoaded = useCallback(
@@ -123,23 +143,24 @@ const DocumentEditor = () => {
       if (loadedTitle) setTitle(loadedTitle);
       isRemoteUpdate.current = false;
     },
-    [editor]
+    [editor],
   );
 
-  const { emitChange, emitTyping, typingUsers, collaboratorIds } = useDocumentSocket({
-    docId: id,
-    onRemoteUpdate: handleRemoteUpdate,
-    onDocumentLoaded: handleDocumentLoaded,
-  });
+  const { emitChange, emitTyping, typingUsers, collaboratorIds } =
+    useDocumentSocket({
+      docId: id,
+      onRemoteUpdate: handleRemoteUpdate,
+      onDocumentLoaded: handleDocumentLoaded,
+    });
 
   const save = useCallback(async () => {
     if (!editor || !doc) return;
-    setSaveStatus('saving');
+    setSaveStatus("saving");
     try {
       await documentAPI.update(id, { title, content: editor.getHTML(), emoji });
-      setSaveStatus('saved');
+      setSaveStatus("saved");
     } catch {
-      setSaveStatus('unsaved');
+      setSaveStatus("unsaved");
     }
   }, [editor, doc, id, title, emoji]);
 
@@ -147,7 +168,7 @@ const DocumentEditor = () => {
 
   const handleTitleChange = (e) => {
     setTitle(e.target.value);
-    setSaveStatus('unsaved');
+    setSaveStatus("unsaved");
     triggerAutoSave();
     emitChange({ content: editor?.getHTML(), title: e.target.value });
     emitTyping();
@@ -156,7 +177,7 @@ const DocumentEditor = () => {
   const handleEmojiSelect = (e) => {
     setEmoji(e);
     setShowEmojiPicker(false);
-    setSaveStatus('unsaved');
+    setSaveStatus("unsaved");
     triggerAutoSave();
   };
 
@@ -164,19 +185,22 @@ const DocumentEditor = () => {
     if (editor) {
       editor.commands.clearContent();
       editor.commands.insertContent(`<p>${text}</p>`);
-      setSaveStatus('unsaved');
+      setSaveStatus("unsaved");
       triggerAutoSave();
-      setToast({ message: 'AI improvements applied to document', type: 'success' });
+      setToast({
+        message: "AI improvements applied to document",
+        type: "success",
+      });
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this document permanently?')) return;
+    if (!window.confirm("Delete this document permanently?")) return;
     try {
       await documentAPI.delete(id);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch {
-      setToast({ message: 'Failed to delete document', type: 'error' });
+      setToast({ message: "Failed to delete document", type: "error" });
     }
   };
 
@@ -194,106 +218,229 @@ const DocumentEditor = () => {
   return (
     <div className="flex h-full bg-white">
       {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
 
       {/* Editor column */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Document header bar */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-b border-slate-100 bg-white">
-          {/* Emoji + Title */}
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={() => setShowEmojiPicker((v) => !v)}
-                className="w-9 h-9 flex items-center justify-center text-xl hover:bg-slate-100 rounded-xl transition-colors"
-              >
-                {emoji}
-              </button>
-              {showEmojiPicker && (
-                <div className="absolute top-full left-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-panel p-2.5 grid grid-cols-5 gap-0.5 z-30">
-                  {EMOJIS.map((e) => (
-                    <button
-                      key={e}
-                      onClick={() => handleEmojiSelect(e)}
-                      className="w-9 h-9 text-xl hover:bg-slate-100 rounded-xl flex items-center justify-center transition-colors"
-                    >
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+        {/* Document header */}
+        <div className="border-b border-slate-100 bg-white px-6 py-5">
+          <div className="flex items-start justify-between gap-6">
+            {/* Left */}
+            <div className="flex items-start gap-4 flex-1 min-w-0">
+              {/* Emoji */}
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  className="
+            w-14 h-14
+            flex items-center justify-center
+            text-3xl
+            bg-slate-50
+            border border-slate-200
+            rounded-2xl
+            hover:bg-white
+            hover:border-slate-300
+            hover:shadow-sm
+            transition-all
+          "
+                >
+                  {emoji}
+                </button>
 
-            <input
-              value={title}
-              onChange={handleTitleChange}
-              placeholder="Untitled"
-              className="text-base font-bold text-slate-900 bg-transparent border-none outline-none placeholder-slate-300 w-full min-w-0"
-            />
-          </div>
-
-          {/* Right actions */}
-          <div className="flex items-center gap-1.5 flex-shrink-0 ml-4">
-            {/* Collaborator avatars */}
-            {collaboratorIds.length > 0 && (
-              <div className="flex items-center -space-x-1.5 mr-2">
-                {collaboratorIds.slice(0, 4).map((uid, i) => (
+                {showEmojiPicker && (
                   <div
-                    key={uid}
-                    className="w-6 h-6 rounded-full border-2 border-white flex-shrink-0"
-                    style={{ backgroundColor: getAvatarColor(uid), zIndex: 4 - i }}
-                    title="Collaborator online"
-                  />
-                ))}
-                {collaboratorIds.length > 4 && (
-                  <div
-                    className="w-6 h-6 rounded-full border-2 border-white bg-slate-300 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                    style={{ zIndex: 0 }}
+                    className="
+              absolute top-full left-0 mt-3
+              bg-white
+              border border-slate-200
+              rounded-3xl
+              shadow-xl
+              p-3
+              grid grid-cols-5 gap-2
+              z-30
+              w-72
+            "
                   >
-                    +{collaboratorIds.length - 4}
+                    {EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => handleEmojiSelect(e)}
+                        className="
+                  h-11 w-11
+                  text-2xl
+                  rounded-xl
+                  hover:bg-slate-100
+                  transition-colors
+                  flex items-center justify-center
+                "
+                      >
+                        {e}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
-            )}
 
-            <SaveStatusBadge status={saveStatus} />
+              {/* Title + Save */}
+              <div className="flex flex-col flex-1 min-w-0">
+                <input
+                  value={title}
+                  onChange={handleTitleChange}
+                  placeholder="Untitled"
+                  className="
+            text-2xl
+            font-semibold
+            text-slate-900
+            bg-transparent
+            border-none
+            outline-none
+            placeholder:text-slate-300
+            w-full
+            min-w-0
+          "
+                />
 
-            <div className="w-px h-4 bg-slate-200 mx-1" />
+                <div className="mt-1">
+                  <SaveStatusBadge status={saveStatus} />
+                </div>
+              </div>
+            </div>
 
-            <button
-              onClick={() => setShowShare(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Share
-            </button>
+            {/* Right Actions */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {/* Collaborators */}
+              {collaboratorIds.length > 0 && (
+                <div className="flex items-center -space-x-2">
+                  {collaboratorIds.slice(0, 4).map((uid, i) => (
+                    <div
+                      key={uid}
+                      className="
+                w-8 h-8
+                rounded-full
+                border-2 border-white
+                shadow-sm
+              "
+                      style={{
+                        backgroundColor: getAvatarColor(uid),
+                        zIndex: 4 - i,
+                      }}
+                      title="Collaborator online"
+                    />
+                  ))}
 
-            <button
-              onClick={() => setShowAI((v) => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                showAI
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2" />
-              </svg>
-              AI
-            </button>
+                  {collaboratorIds.length > 4 && (
+                    <div
+                      className="
+                w-8 h-8
+                rounded-full
+                border-2 border-white
+                bg-slate-300
+                flex items-center justify-center
+                text-xs font-semibold text-white
+              "
+                    >
+                      +{collaboratorIds.length - 4}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            <button
-              onClick={handleDelete}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-              title="Delete document"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
+              {/* Share */}
+              <button
+                onClick={() => setShowShare(true)}
+                className="
+          flex items-center gap-2
+          px-4 py-2
+          rounded-xl
+          text-sm font-medium
+          text-slate-700
+          border border-slate-200
+          hover:bg-slate-50
+          transition-colors
+        "
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                Share
+              </button>
+
+              {/* AI */}
+              <button
+                onClick={() => setShowAI((v) => !v)}
+                className={`
+          flex items-center gap-2
+          px-4 py-2
+          rounded-xl
+          text-sm font-medium
+          transition-all
+          ${
+            showAI
+              ? "bg-primary-600 text-white shadow-sm"
+              : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+          }
+        `}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"
+                  />
+                </svg>
+                AI Assistant
+              </button>
+
+              {/* Delete */}
+              <button
+                onClick={handleDelete}
+                className="
+          w-10 h-10
+          rounded-xl
+          flex items-center justify-center
+          text-slate-400
+          hover:text-red-500
+          hover:bg-red-50
+          transition-colors
+        "
+                title="Delete document"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -313,7 +460,7 @@ const DocumentEditor = () => {
               ))}
             </span>
             {typingUsers.length === 1
-              ? 'Someone is typing…'
+              ? "Someone is typing…"
               : `${typingUsers.length} people are typing…`}
           </div>
         )}
