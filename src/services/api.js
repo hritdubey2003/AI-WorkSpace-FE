@@ -1,11 +1,10 @@
 import axios from 'axios';
+import { API_BASE_URL, STORAGE_KEY_TOKEN } from '../constants';
 
-const BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
-const api = axios.create({ baseURL: BASE });
+const api = axios.create({ baseURL: API_BASE_URL });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem(STORAGE_KEY_TOKEN);
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -14,10 +13,17 @@ api.interceptors.response.use(
   (res) => res.data,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('token');
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
       window.location.href = '/login';
     }
-    return Promise.reject(err.response?.data || err);
+    // Normalize: extract message from new BE shape { success, error: { code, message } }
+    // Fall back to old shape { message } for backward compatibility
+    const beMessage =
+      err.response?.data?.error?.message ||
+      err.response?.data?.message;
+    const normalized = new Error(beMessage || err.message);
+    normalized.response = err.response;
+    return Promise.reject(normalized);
   }
 );
 
@@ -32,18 +38,22 @@ export const workspaceAPI = {
   getOne: (id) => api.get(`/workspaces/${id}`),
   create: (data) => api.post('/workspaces', data),
   delete: (id) => api.delete(`/workspaces/${id}`),
-  addMember: (wsId, email) => api.post(`/workspaces/${wsId}/members`, { email }),
+  searchUsers: (wsId, q) => api.get(`/workspaces/${wsId}/members/search`, { params: { q } }),
+  addMember: (wsId, userId, role = 'EDITOR') => api.post(`/workspaces/${wsId}/members`, { userId, role }),
+  updateMemberRole: (wsId, userId, role) => api.patch(`/workspaces/${wsId}/members/${userId}`, { role }),
   removeMember: (wsId, userId) => api.delete(`/workspaces/${wsId}/members/${userId}`),
 };
 
 export const documentAPI = {
   getByWorkspace: (wsId) => api.get(`/documents/workspace/${wsId}`),
+  getSharedWithMe: () => api.get('/documents/shared-with-me'),
   getOne: (id) => api.get(`/documents/${id}`),
   create: (data) => api.post('/documents', data),
   update: (id, data) => api.patch(`/documents/${id}`, data),
   delete: (id) => api.delete(`/documents/${id}`),
-  shareDoc: (id, email) => api.post(`/documents/${id}/share`, { email }),
+  shareDoc: (id, email, role = 'EDITOR') => api.post(`/documents/${id}/share`, { email, role }),
   removeCollaborator: (id, userId) => api.delete(`/documents/${id}/share/${userId}`),
+  leaveShared: (id) => api.delete(`/documents/${id}/share`),
   getCollaborators: (id) => api.get(`/documents/${id}/collaborators`),
 };
 

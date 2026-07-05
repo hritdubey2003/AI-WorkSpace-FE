@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWorkspace } from '../context/WorkspaceContext';
-import { documentAPI } from '../services/api';
+import { useDocuments } from '../context/DocumentContext';
+import { getFriendlyError } from '../utils/errorMessages';
 import DocumentCard from '../components/DocumentCard';
 import Spinner from '../components/Spinner';
 import Toast from '../components/Toast';
@@ -10,44 +11,31 @@ import Toast from '../components/Toast';
 const Dashboard = () => {
   const { user } = useAuth();
   const { currentWorkspace } = useWorkspace();
+  const { documents, loading, createDocument, deleteDocument } = useDocuments();
   const navigate = useNavigate();
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    if (currentWorkspace) loadDocs();
-  }, [currentWorkspace]);
-
-  const loadDocs = async () => {
-    setLoading(true);
-    try {
-      const data = await documentAPI.getByWorkspace(currentWorkspace.id);
-      setDocuments(data);
-    } catch {}
-    finally { setLoading(false); }
-  };
 
   const handleNewDoc = async () => {
     if (!currentWorkspace) return;
     try {
-      const doc = await documentAPI.create({
+      const doc = await createDocument({
         title: 'Untitled',
         workspaceId: currentWorkspace.id,
       });
       navigate(`/document/${doc.id}`);
-    } catch {}
+    } catch (err) {
+      setToast({ message: getFriendlyError(err), type: 'error' });
+    }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this document?')) return;
     try {
-      await documentAPI.delete(id);
-      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      await deleteDocument(id);
       setToast({ message: 'Document deleted', type: 'success' });
-    } catch {
-      setToast({ message: 'Failed to delete document', type: 'error' });
+    } catch (err) {
+      setToast({ message: getFriendlyError(err), type: 'error' });
     }
   };
 
@@ -57,6 +45,8 @@ const Dashboard = () => {
     if (h < 17) return 'Good afternoon';
     return 'Good evening';
   };
+
+  const canCreate = !!currentWorkspace && currentWorkspace.role !== 'VIEWER';
 
   const filtered = documents.filter(
     (d) => !search || (d.title || 'Untitled').toLowerCase().includes(search.toLowerCase())
@@ -88,8 +78,8 @@ const Dashboard = () => {
     {
       label: 'Your Role',
       value: currentWorkspace?.role
-        ? currentWorkspace.role.charAt(0).toUpperCase() + currentWorkspace.role.slice(1)
-        : 'Member',
+        ? currentWorkspace.role.charAt(0) + currentWorkspace.role.slice(1).toLowerCase()
+        : 'Editor',
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -119,7 +109,7 @@ const Dashboard = () => {
                 : 'Create or select a workspace to get started'}
             </p>
           </div>
-          {currentWorkspace && (
+          {canCreate && (
             <button
               onClick={handleNewDoc}
               className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 active:bg-primary-800 transition-colors shadow-sm"
@@ -176,17 +166,21 @@ const Dashboard = () => {
             </div>
             <h2 className="text-base font-semibold text-slate-800 mb-2">No documents yet</h2>
             <p className="text-slate-500 text-sm mb-6">
-              Create your first document and start writing with AI assistance.
+              {canCreate
+                ? 'Create your first document and start writing with AI assistance.'
+                : 'You have view-only access to this workspace.'}
             </p>
-            <button
-              onClick={handleNewDoc}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-              </svg>
-              Create Document
-            </button>
+            {canCreate && (
+              <button
+                onClick={handleNewDoc}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                Create Document
+              </button>
+            )}
           </div>
         ) : (
           <>
