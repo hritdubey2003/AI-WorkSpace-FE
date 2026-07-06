@@ -8,7 +8,8 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 
 import { documentAPI } from "../services/api";
-import { useAuth } from "../context/AuthContext";
+import { useDocuments } from "../context/DocumentContext";
+import { getFriendlyError } from "../utils/errorMessages";
 import { useDocumentSocket } from "../hooks/useDocumentSocket";
 import { useAutoSave } from "../hooks/useAutoSave";
 import EditorToolbar from "../components/EditorToolbar";
@@ -80,7 +81,7 @@ const SaveStatusBadge = ({ status }) => {
 const DocumentEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { deleteDocument, syncDocument } = useDocuments();
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
@@ -117,6 +118,7 @@ const DocumentEditor = () => {
         setTitle(d.title);
         setEmoji(d.emoji);
         editor?.commands.setContent(d.content || "");
+        editor?.setEditable(d.canEdit !== false);
       } catch {
         navigate("/dashboard");
       } finally {
@@ -159,10 +161,11 @@ const DocumentEditor = () => {
     try {
       await documentAPI.update(id, { title, content: editor.getHTML(), emoji });
       setSaveStatus("saved");
+      syncDocument(id, { title, emoji });
     } catch {
       setSaveStatus("unsaved");
     }
-  }, [editor, doc, id, title, emoji]);
+  }, [editor, doc, id, title, emoji, syncDocument]);
 
   const triggerAutoSave = useAutoSave(save, 2000);
 
@@ -197,10 +200,10 @@ const DocumentEditor = () => {
   const handleDelete = async () => {
     if (!window.confirm("Delete this document permanently?")) return;
     try {
-      await documentAPI.delete(id);
+      await deleteDocument(id);
       navigate("/dashboard");
-    } catch {
-      setToast({ message: "Failed to delete document", type: "error" });
+    } catch (err) {
+      setToast({ message: getFriendlyError(err), type: "error" });
     }
   };
 
@@ -235,7 +238,8 @@ const DocumentEditor = () => {
               {/* Emoji */}
               <div className="relative flex-shrink-0">
                 <button
-                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  onClick={() => doc?.canEdit !== false && setShowEmojiPicker((v) => !v)}
+                  disabled={doc?.canEdit === false}
                   className="
             w-14 h-14
             flex items-center justify-center
@@ -292,6 +296,7 @@ const DocumentEditor = () => {
                   value={title}
                   onChange={handleTitleChange}
                   placeholder="Untitled"
+                  disabled={doc?.canEdit === false}
                   className="
             text-2xl
             font-semibold
@@ -486,7 +491,7 @@ const DocumentEditor = () => {
         onClose={() => setShowShare(false)}
         docId={id}
         docTitle={title}
-        isOwner={doc?.authorId === user?.id}
+        isOwner={doc?.isWorkspaceOwner === true}
       />
     </div>
   );
