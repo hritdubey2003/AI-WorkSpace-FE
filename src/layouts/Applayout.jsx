@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWorkspace } from '../context/WorkspaceContext';
+import { useDocuments } from '../context/DocumentContext';
 import { documentAPI } from '../services/api';
 import Modal from '../components/Modal';
 import ShareModal from '../components/ShareModal';
@@ -11,33 +12,45 @@ const AppLayout = ({ children }) => {
   const { user, logout } = useAuth();
   const { workspaces, currentWorkspace, setCurrentWorkspace, fetchWorkspaces, createWorkspace } =
     useWorkspace();
+  const { documents, loading: docsLoading, createDocument } = useDocuments();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [documents, setDocuments] = useState([]);
-  const [docsLoading, setDocsLoading] = useState(false);
   const [showNewWs, setShowNewWs] = useState(false);
   const [wsName, setWsName] = useState('');
   const [wsDesc, setWsDesc] = useState('');
   const [creating, setCreating] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showShare, setShowShare] = useState(false);
+  const [sharedDocs, setSharedDocs] = useState([]);
+  const [sharedLoading, setSharedLoading] = useState(false);
 
   useEffect(() => {
     fetchWorkspaces();
   }, []);
 
-  useEffect(() => {
-    if (currentWorkspace) loadDocuments(currentWorkspace.id);
-  }, [currentWorkspace]);
-
-  const loadDocuments = async (wsId) => {
-    setDocsLoading(true);
+  const loadSharedDocs = useCallback(async () => {
+    setSharedLoading(true);
     try {
-      const docs = await documentAPI.getByWorkspace(wsId);
-      setDocuments(docs);
+      const docs = await documentAPI.getSharedWithMe();
+      setSharedDocs(docs);
+    } catch {
+      setSharedDocs([]);
+    } finally {
+      setSharedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSharedDocs();
+  }, [loadSharedDocs, location.pathname]);
+
+  const handleLeaveShared = async (docId) => {
+    try {
+      await documentAPI.leaveShared(docId);
+      setSharedDocs((prev) => prev.filter((d) => d.id !== docId));
+      if (location.pathname === `/document/${docId}`) navigate('/dashboard');
     } catch {}
-    finally { setDocsLoading(false); }
   };
 
   const handleCreateWorkspace = async (e) => {
@@ -54,16 +67,24 @@ const AppLayout = ({ children }) => {
     finally { setCreating(false); }
   };
 
+  const canCreate = !!currentWorkspace && currentWorkspace.role !== 'VIEWER';
+
   const handleNewDoc = async () => {
-    if (!currentWorkspace) return;
+    if (!canCreate) return;
     try {
-      const doc = await documentAPI.create({
+      const doc = await createDocument({
         title: 'Untitled',
         workspaceId: currentWorkspace.id,
       });
-      setDocuments((prev) => [doc, ...prev]);
       navigate(`/document/${doc.id}`);
     } catch {}
+  };
+
+  const handleWorkspaceChange = (workspaceId) => {
+    const ws = workspaces.find((w) => w.id === workspaceId);
+    setCurrentWorkspace(ws);
+    // Avoid leaving a document from the previous workspace open under the new selection
+    navigate('/dashboard');
   };
 
   const handleLogout = () => {
@@ -102,10 +123,7 @@ const AppLayout = ({ children }) => {
           {workspaces.length > 0 ? (
             <select
               value={currentWorkspace?.id || ''}
-              onChange={(e) => {
-                const ws = workspaces.find((w) => w.id === e.target.value);
-                setCurrentWorkspace(ws);
-              }}
+              onChange={(e) => handleWorkspaceChange(e.target.value)}
               className="w-full bg-white/[0.07] text-white text-xs rounded-lg px-2.5 py-2 border border-white/[0.08] focus:outline-none focus:border-primary-500/50 cursor-pointer"
             >
               {workspaces.map((ws) => (
@@ -167,7 +185,7 @@ const AppLayout = ({ children }) => {
             </p>
             <button
               onClick={handleNewDoc}
-              disabled={!currentWorkspace}
+              disabled={!canCreate}
               className="text-white/35 hover:text-white/65 transition-colors disabled:opacity-30"
               title="New document"
             >
@@ -198,6 +216,46 @@ const AppLayout = ({ children }) => {
                   <span className="text-sm flex-shrink-0">{doc.emoji || '📄'}</span>
                   <span className="truncate">{doc.title || 'Untitled'}</span>
                 </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Shared with me */}
+          <div className="flex items-center justify-between mb-2 px-1 mt-5">
+            <p className="text-[10px] text-white/30 font-semibold uppercase tracking-widest">
+              Shared with me
+            </p>
+          </div>
+
+          {sharedLoading ? (
+            <div className="flex justify-center py-4">
+              <Spinner size="sm" />
+            </div>
+          ) : sharedDocs.length === 0 ? (
+            <p className="text-[11px] text-white/20 px-1 py-1">Nothing shared yet</p>
+          ) : (
+            <div className="space-y-0.5">
+              {sharedDocs.map((doc) => (
+                <div
+                  key={doc.id}
+                  className={`group flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-lg text-[12px] transition-colors ${
+                    isActive(`/document/${doc.id}`)
+                      ? 'bg-white/[0.12] text-white'
+                      : 'text-white/45 hover:text-white/75 hover:bg-white/[0.06]'
+                  }`}
+                >
+                  <Link to={`/document/${doc.id}`} className="flex items-center gap-2 flex-1 min-w-0 truncate">
+                    <span className="text-sm flex-shrink-0">{doc.emoji || '📄'}</span>
+                    <span className="truncate">{doc.title || 'Untitled'}</span>
+                  </Link>
+                  <button
+                    onClick={() => handleLeaveShared(doc.id)}
+                    className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 transition-all flex-shrink-0"
+                    title="Remove from my shared list"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -244,7 +302,7 @@ const AppLayout = ({ children }) => {
           )}
           <button
             onClick={handleNewDoc}
-            disabled={!currentWorkspace}
+            disabled={!canCreate}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 shadow-sm"
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

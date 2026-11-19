@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { documentAPI } from '../services/api';
+import { getFriendlyError } from '../utils/errorMessages';
 import Modal from './Modal';
 import Spinner from './Spinner';
 
@@ -7,6 +8,7 @@ const DocShareModal = ({ isOpen, onClose, docId, docTitle, isOwner }) => {
   const [collaborators, setCollaborators] = useState([]);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState('EDITOR');
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -38,14 +40,25 @@ const DocShareModal = ({ isOpen, onClose, docId, docTitle, isOwner }) => {
     setError('');
     setSuccessMsg('');
     try {
-      const entry = await documentAPI.shareDoc(docId, email.trim());
-      setCollaborators((prev) => [...prev, entry]);
-      setSuccessMsg(`${email.trim()} now has access`);
+      const entry = await documentAPI.shareDoc(docId, email.trim(), role);
+      setCollaborators((prev) => [...prev.filter((c) => c.userId !== entry.userId), entry]);
+      setSuccessMsg(`${email.trim()} now has ${role.toLowerCase()} access`);
       setEmail('');
+      setRole('EDITOR');
     } catch (err) {
-      setError(err.message || 'Failed to share document');
+      setError(getFriendlyError(err));
     } finally {
       setSharing(false);
+    }
+  };
+
+  const handleRoleChange = async (collaborator, newRole) => {
+    setError('');
+    try {
+      const entry = await documentAPI.shareDoc(docId, collaborator.user.email, newRole);
+      setCollaborators((prev) => prev.map((c) => (c.userId === entry.userId ? entry : c)));
+    } catch (err) {
+      setError(getFriendlyError(err));
     }
   };
 
@@ -55,7 +68,7 @@ const DocShareModal = ({ isOpen, onClose, docId, docTitle, isOwner }) => {
       await documentAPI.removeCollaborator(docId, userId);
       setCollaborators((prev) => prev.filter((c) => c.userId !== userId));
     } catch (err) {
-      setError(err.message || 'Failed to remove access');
+      setError(getFriendlyError(err));
     }
   };
 
@@ -74,6 +87,14 @@ const DocShareModal = ({ isOpen, onClose, docId, docTitle, isOwner }) => {
                 placeholder="Share with email address…"
                 className="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="border border-slate-300 rounded-xl px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flex-shrink-0"
+              >
+                <option value="EDITOR">Editor</option>
+                <option value="VIEWER">Viewer</option>
+              </select>
               <button
                 type="submit"
                 disabled={sharing || !email.trim()}
@@ -115,9 +136,14 @@ const DocShareModal = ({ isOpen, onClose, docId, docTitle, isOwner }) => {
                         </p>
                         <p className="text-xs text-slate-400 truncate">{c.user.email}</p>
                       </div>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-500 flex-shrink-0">
-                        editor
-                      </span>
+                      <select
+                        value={c.role}
+                        onChange={(e) => handleRoleChange(c, e.target.value)}
+                        className="text-xs px-2 py-1 rounded-full font-medium bg-slate-100 text-slate-500 flex-shrink-0 border-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="EDITOR">editor</option>
+                        <option value="VIEWER">viewer</option>
+                      </select>
                       <button
                         onClick={() => handleRemove(c.userId)}
                         className="text-slate-300 hover:text-red-400 transition-colors text-sm ml-1 flex-shrink-0"
@@ -134,7 +160,7 @@ const DocShareModal = ({ isOpen, onClose, docId, docTitle, isOwner }) => {
         )}
 
         <p className="text-xs text-slate-400 border-t border-slate-100 pt-3">
-          Shared users can view and edit this document directly.
+          Editors can view and edit this document; viewers have read-only access.
         </p>
       </div>
     </Modal>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { getFriendlyError } from '../utils/errorMessages';
 import Spinner from '../components/Spinner';
 
 const Login = () => {
@@ -23,7 +24,7 @@ const Login = () => {
       login(res.user, res.token);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Invalid email or password.');
+      setError(getFriendlyError(err));
     } finally {
       setLoading(false);
     }
