@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../constants';
 
 const AuthContext = createContext(null);
 
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
   const fetchMe = async () => {
     try {
       const res = await axios.get(
-        `${process.env.REACT_API_URL}/auth/me`
+        `${API_BASE_URL}/auth/me`
       );
       setUser(res.data.user);
     } catch {
