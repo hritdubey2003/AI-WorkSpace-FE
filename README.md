@@ -74,16 +74,16 @@ npm install
 Create a `.env` file in the project root:
 
 ```env
-REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_BACKEND_URL=http://localhost:5000/api
 REACT_APP_SOCKET_URL=http://localhost:5000
 ```
 
-| Variable               | Description                         | Default                     |
-| ---------------------- | ----------------------------------- | --------------------------- |
-| `REACT_APP_API_URL`    | Base URL of the backend REST API    | `http://localhost:5000/api` |
-| `REACT_APP_SOCKET_URL` | URL of the backend Socket.io server | `http://localhost:5000`     |
+| Variable                | Description                         | Default                     |
+| ----------------------- | ----------------------------------- | --------------------------- |
+| `REACT_APP_BACKEND_URL` | Base URL of the backend REST API    | `http://localhost:5000/api` |
+| `REACT_APP_SOCKET_URL`  | URL of the backend Socket.io server | `http://localhost:5000`     |
 
-`REACT_APP_API_URL` should always be set: `AuthContext` reads it directly, without the fallback. Restart the dev server after changing `.env`.
+Create React App only exposes variables whose names start with `REACT_APP_`; any other name is silently ignored. Both values end up in the browser bundle, so never put secrets in them. Restart the dev server after changing `.env`. On Vercel, set them in the project's environment variables and redeploy, since they are fixed at build time.
 
 Also make sure the backend's `CLIENT_URL` matches the frontend's origin (`http://localhost:3000` by default), or CORS will block requests.
 
